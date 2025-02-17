@@ -25,6 +25,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!--    TODO: A permission would be necessary here to prevent any security concerns.    -->
         <service android:name="global.covesa.sdk.client.push.PushServiceImpl"
             android:exported="true">
             <intent-filter>
