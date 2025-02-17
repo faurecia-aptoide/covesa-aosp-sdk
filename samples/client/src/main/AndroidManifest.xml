@@ -25,10 +25,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!--    TODO: A permission would be necessary here to prevent any security concerns.    -->
         <service android:name="global.covesa.sdk.client.push.PushServiceImpl"
-            android:exported="false">
+            android:exported="true">
             <intent-filter>
                 <action android:name="global.covesa.sdk.PUSH_EVENT"/>
+                <action android:name="org.unifiedpush.android.connector.RAISE_TO_FOREGROUND"/>
             </intent-filter>
         </service>
     </application>
