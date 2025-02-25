@@ -30,7 +30,6 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="global.covesa.sdk.PUSH_EVENT"/>
-                <action android:name="org.unifiedpush.android.connector.RAISE_TO_FOREGROUND"/>
             </intent-filter>
         </service>
     </application>
