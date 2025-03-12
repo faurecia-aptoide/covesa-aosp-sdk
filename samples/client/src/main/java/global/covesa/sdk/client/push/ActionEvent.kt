@@ -24,17 +24,12 @@ class ActionEvent(private val type: Type) {
 
     private fun registerPush(activity: Activity) {
         Log.w(TAG,"Registering push on $activity")
-        if (PushManager.getSavedDistributor(activity) != null) {
-            Log.d(TAG, "Using saved distributor")
-            doRegistration(activity)
-        } else {
-            PushManager.tryUseCurrentOrDefaultDistributor(
-                activity
-            ) { success ->
-                Log.d(TAG, "Using current or default distributor")
-                if (success) {
-                    doRegistration(activity)
-                }
+        PushManager.tryUseCurrentOrDefaultDistributor(
+            activity
+        ) { success ->
+            Log.w(TAG, "Using current or default distributor")
+            if (success) {
+                doRegistration(activity)
             }
         }
     }

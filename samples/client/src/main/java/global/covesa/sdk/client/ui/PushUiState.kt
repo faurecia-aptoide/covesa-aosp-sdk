@@ -5,18 +5,16 @@ import global.covesa.sdk.api.client.push.PushManager
 
 data class PushUiState(
     val registered: Boolean = false,
-    val pushDistributor: String = "",
+    val pushDistributor: String? = null,
     val availableDistributors: List<String> = emptyList(),
-    val selectedDistributor: String = "",
-    val savedDistributor: String = "",
+    val selectedDistributor: String? = null,
+    val savedDistributor: String? = null,
 ) {
     constructor(context: Context) : this(
         registered = PushManager.getAckDistributor(context) != null,
-        pushDistributor = PushManager.getAckDistributor(context).toString(),
+        pushDistributor = PushManager.getAckDistributor(context) ?: PushManager.getSavedDistributor(context),
         availableDistributors = PushManager.getDistributors(context),
-        selectedDistributor = if (PushManager.getDistributors(context).size > 1) PushManager.getDistributors(
-            context
-        ).first() else "",
-        savedDistributor = PushManager.getSavedDistributor(context).toString(),
+        selectedDistributor = PushManager.getSavedDistributor(context),
+        savedDistributor = PushManager.getSavedDistributor(context),
     )
 }

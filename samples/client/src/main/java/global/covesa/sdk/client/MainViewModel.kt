@@ -103,7 +103,7 @@ class MainViewModel(
 
     fun saveDistributor(context: Context) {
         val distributor = pushUiState.selectedDistributor
-        PushManager.saveDistributor(context, distributor)
+        distributor?.let { PushManager.saveDistributor(context, it) }
         pushUiState = pushUiState.copy(savedDistributor = distributor)
     }
 }

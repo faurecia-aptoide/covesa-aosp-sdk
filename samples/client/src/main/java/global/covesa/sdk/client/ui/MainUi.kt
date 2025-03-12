@@ -127,7 +127,7 @@ fun MainUi(viewModel: MainViewModel) {
                 Spacer(modifier = Modifier.height(6.dp))
                 GenericSpinner(
                     title = "Select a distributor: ",
-                    selectedItem = pushUiState.selectedDistributor,
+                    selectedItem = pushUiState.selectedDistributor ?: pushUiState.savedDistributor.toString(),
                     entriesList = pushUiState.availableDistributors
                 ) {
                     viewModel.selectDistributor(it)
