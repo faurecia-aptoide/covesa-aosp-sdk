@@ -204,6 +204,162 @@ PushManager.unregister(context: Context)
 ```
 
 
+## Testing push notifications
+
+The straightaway option: use cURL.
+
+The JWT needs a header like this:
+
+```json
+{
+  "alg":"ES256",
+  "typ":"JWT"
+}
+```
+
+Then a body, with this format:
+
+```json
+{
+  "aud":"${endpoint.protocal}://${endpoint.authority}",
+  "exp":"${((System.currentTimeMillis() / 1000) + 43200)}" // +12h,
+  "sub":"mailto:"
+}
+```
+
+The content of the cURL needs to be encrypted using the authSecret of the WebPush
+
+```shell
+echo -n $message_encrypted_using_auth_secret | base64 -d | curl '$endpoint' \  -X 'POST' \  -H 'Authorization: vapid t=$jwt,k=$vapid_pub_key' \  -H 'Content-Encoding: aes128gcm' \  -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' \  -H 'TTL: 60' \  -H 'Urgency: high' \  --data-binary @- \  --compressed
+```
+
+If everything is working as expected, the notification should be shown.
+
+On the Sample Client from the SDK you can find that there is a FakeApplicationServer.kt that is used to simulate an ApplicationServer and how that ApplicationServer would send a notification.
+
+In this case, Volley is being used to make a request:
+
+```kotlin
+/**
+* Send a notification encrypted with RFC8291
+*/
+private fun sendWebPushNotification(content: String, callback: (response: String?, error: VolleyError?) -> Unit) {
+  Log.w(TAG, "Sending WebPushNotification with content $content")
+  val requestQueue: RequestQueue = Volley.newRequestQueue(context)
+  val url = endpoint
+  val request = object :
+      StringRequest(
+          Method.POST,
+          url,
+          Response.Listener { r ->
+              callback(r, null)
+          },
+          Response.ErrorListener { e ->
+              callback(null, e)
+          },
+      ) {
+      override fun getBody(): ByteArray {
+          val auth = authSecret?.b64decode()
+          val hybridEncrypt =
+              WebPushHybridEncrypt.Builder()
+                  .withAuthSecret(auth)
+                  .withRecipientPublicKey(pubKey?.decodePubKey() as ECPublicKey)
+                  .build()
+          return hybridEncrypt.encrypt(content.toByteArray(), null)
+      }
+
+      override fun getHeaders(): Map<String, String> {
+          val params: MutableMap<String, String> = HashMap()
+          params["Content-Encoding"] = "aes128gcm"
+          params["TTL"] = "60"
+          params["Urgency"] = "high"
+          params["Authorization"] = getVapidHeader()
+          return params
+      }
+  }
+  requestQueue.add(request)
+}
+```
+
+Where the getVapidHeader() would be something like this:
+
+```kotlin
+private fun getVapidHeader(sub: String = "mailto"): String {
+    val endpointStr = endpoint ?: return ""
+    val header = JSONObject()
+        .put("alg", "ES256")
+        .put("typ", "JWT")
+        .toString().toByteArray(Charsets.UTF_8).b64encode()
+    val endpoint = URL(endpointStr)
+    val exp = ((System.currentTimeMillis() / 1000) + 43200) // +12h
+
+    /**
+      * [org.json.JSONStringer#string] Doesn't follow RFC, '/' = 0x2F doesn't have to be escaped
+      */
+    val body = JSONObject()
+        .put("aud", "${endpoint.protocol}://${endpoint.authority}")
+        .put("exp", exp)
+        .put("sub", sub)
+        .toString().toByteArray(Charsets.UTF_8).b64encode()
+    val toSign = "$header.$body".toByteArray(Charsets.UTF_8)
+    val signature = sign(toSign)?.b64encode()
+    val jwt = "$header.$body.$signature"
+    return "vapid t=$jwt,k=$vapidPubKey"
+}
+```
+
+The jwt needs to be signed:
+
+```kotlin
+/**
+* Sign [data] using the generated VAPID key pair
+*/
+private fun sign(data: ByteArray): ByteArray? {
+  val ks = KeyStore.getInstance(KEYSTORE_PROVIDER).apply {
+      load(null)
+  }
+  if (!ks.containsAlias(ALIAS) || !ks.entryInstanceOf(ALIAS, PrivateKeyEntry::class.java)) {
+      // This should never be called. When we sign something, the key are already created.
+      genVapidKey()
+  }
+  val entry: KeyStore.Entry = ks.getEntry(ALIAS, null)
+  if (entry !is PrivateKeyEntry) {
+      Log.w(TAG, "Not an instance of a PrivateKeyEntry")
+      return null
+  }
+  val signature = Signature.getInstance("SHA256withECDSA").run {
+      initSign(entry.privateKey)
+      update(data)
+      sign()
+  }.let { EllipticCurves.ecdsaDer2Ieee(it, 64) }
+  return signature
+}
+
+/**
+  * Generate a new KeyPair for VAPID on the fake server side
+  */
+private fun genVapidKey(): KeyPair {
+  Log.d(TAG, "Generating a new KP.")
+  val generator =
+      KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, KEYSTORE_PROVIDER)
+  generator.initialize(
+      KeyGenParameterSpec.Builder(ALIAS, KeyProperties.PURPOSE_SIGN)
+          .setAlgorithmParameterSpec(ECGenParameterSpec("secp256r1"))
+          .setDigests(KeyProperties.DIGEST_SHA256)
+          .setUserAuthenticationRequired(false)
+          .build()
+  )
+  return generator.generateKeyPair().also {
+      val pubkey = (it.public as ECPublicKey).encode()
+      Log.d(TAG, "Pubkey: $pubkey")
+      vapidPubKey = pubkey
+  }
+}
+```
+
+----------
+
+
 ## API Artifacts
 Both API libraries artifacts can be generated by using the following commands:
 
